@@ -1,0 +1,197 @@
+git-sh(1) -- a git shell
+========================
+
+## SYNOPSIS
+
+`git-sh`
+
+## DESCRIPTION
+
+`git-sh` starts an interactive `bash(1)` session modified for git-heavy
+workflows. Typical usage is to change into the directory of a git work tree or
+bare repository and run the `git-sh` command to start an interactive shell
+session.
+
+Top-level command aliases are created for all core `git(1)` subcommands, git-sh
+builtin aliases (see *BUILTIN ALIASES*), and git command aliases defined in
+`~/.gitconfig`.
+
+## BUILTIN ALIASES
+
+**git-sh** loads a set of standard aliases in addition to all core git commands.
+The builtin aliases are overridden by aliases defined in the user or system
+gitconfig files.
+
+  * `a`:
+    git add
+  * `b`:
+    git branch
+  * `c`:
+    git checkout
+  * `d`:
+    git diff
+  * `f`:
+    git fetch --prune
+  * `k`:
+    git cherry-pick
+  * `l`:
+    git log --pretty=oneline --abbrev-commit
+  * `n`:
+    git commit --verbose --amend
+  * `r`:
+    git remote
+  * `s`:
+    git commit --dry-run --short
+  * `t`:
+    git diff --cached
+
+### The Staging Area
+
+  * `a`:
+    git add
+  * `aa`:
+    git add --update (mnemonic: "add all")
+  * `stage`:
+    git add
+  * `ap`:
+    git add --patch
+  * `p`:
+    git diff --cached (mnemonic: "patch")
+  * `ps`:
+    git diff --cached --stat (mnemonic: "patch stat")
+  * `unstage`:
+    git reset HEAD
+
+### Commits and Commit History
+
+  * `ci`:
+    git commit --verbose
+  * `ca`:
+    git commit --verbose --all
+  * `amend`:
+    git commit --verbose --amend
+  * `n`:
+    git commit --verbose --amend
+  * `k`:
+    git cherry-pick
+  * `re`:
+    git rebase --interactive
+  * `pop`:
+    git reset --soft HEAD^
+  * `peek`:
+    git log -p --max-count=1
+
+### Fetching and Pulling
+
+  * `f`:
+    git fetch
+  * `pm`:
+    git pull (mnemonic: "pull merge")
+  * `pr`:
+    git pull --rebase (mnemonic: "pull rebase")
+
+### Miscellaneous Commands
+
+  * `d`:
+    git diff
+  * `ds`:
+    git diff --stat (mnemonic: "diff stat")
+  * `hard`:
+    git reset --hard
+  * `soft`:
+    git reset --soft
+  * `scrap`:
+    git checkout HEAD
+
+## CUSTOM ALIASES
+
+Anything defined in the `[alias]` section of the repository, user, or system git
+config files are also available as top-level shell commands. Assuming a
+`~/.gitconfig` that looked like this:
+
+    [alias]
+      ci = commit --verbose
+      ca = commit -a
+      d  = diff
+      s  = status
+      thanks = !git-thanks
+
+... you might then have the following shell session:
+
+    master!something> echo "stuff" >somefile
+    master!something*> s
+    M  somefile
+    master!something*> d
+    diff --git a/somefile b/somefile
+    -- a/somefile
+    ++ b/somefile
+    @@ -0,0 +1 @@
+    + stuff
+    master!something*> ca -m "add stuff"
+    master!something> thanks HEAD
+
+### PROMPT
+
+The default prompt shows the current branch, a bang (`!`), and then the relative
+path to the current working directory from the root of the work tree.  If the
+work tree includes modified files that have not yet been staged, a dirty status
+indicator (`*`) is also displayed.
+
+The git-sh prompt includes ANSI colors when the git `color.ui` option is set and
+enabled. To enable git-sh's prompt colors explicitly, set the `color.sh` config
+value to `auto`:
+
+    $ git config --global color.sh auto
+
+Customize prompt colors by setting the `color.sh.branch`, `color.sh.workdir`,
+and `color.sh.dirty` git config values:
+
+    $ git config --global color.sh.branch 'yellow reverse'
+    $ git config --global color.sh.workdir 'blue bold'
+    $ git config --global color.sh.dirty 'red'
+
+See [colors in git](http://scie.nti.st/2007/5/2/colors-in-git) for information.
+
+## COMPLETION
+
+Bash completion support is automatically enabled for all git built-in commands
+and also for aliases defined in the user `~/.gitconfig` file. The auto-completion
+logic is smart enough to know an alias `d` that expands to `git-diff` should use
+the same completion configuration as the `git-diff` command.
+
+The completion code is a slightly modified version of the git bash completion
+script shipped with the core git distribution. The script is built into the
+`git-sh` executable at compile time and need not be obtained or installed
+separately.
+
+## CUSTOMIZING
+
+Most `git-sh` behavior can be configured by editing the user or system gitconfig
+files (`~/.gitconfig` and `/etc/gitconfig`) either by hand or using
+`git-config(1)`. The `[alias]` section is used to create basic command aliases.
+
+The `/etc/gitshrc` and `~/.gitshrc` files are sourced (in that order)
+immediately before the shell becomes interactive.
+
+The `~/.bashrc` file is sourced before either `/etc/gitshrc` or `~/.gitshrc`.
+Any bash customizations defined there and not explicitly overridden by `git-sh`
+are also available.
+
+## ENVIRONMENT
+
+  * `PS1`:
+    Set to the dynamic git-sh prompt. This can be customized in the `~/.gitshrc`
+    or `/etc/gitshrc` files.
+
+  * `GIT_DIR`:
+    Explicitly set the path to the git repository instead of assuming the
+    nearest `.git` path.
+
+  * `GIT_WORK_TREE`:
+    Explicitly set the path to the root of the work tree instead of assuming
+    the nearest parent directory with a `.git` repository.
+
+## SEE ALSO
+
+bash(1), git(1), git-config(1),
+<http://github.com/rtomayko/git-sh>

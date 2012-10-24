@@ -29,10 +29,9 @@
 }
 
 # we expect to be sourced into an interactive shell. when executed as a
-# command, kick off a new shell and source us. this is a pretty cool hack;
-# make it better.
+# command, kick off a new shell and source us.
 [ "$0" = 'bash' ] ||
-exec /usr/bin/env bash --rcfile "$@" "$0"
+exec /usr/bin/env bash --rcfile "$0" "$@"
 
 # source the user's .bashrc file
 [ -r ~/.bashrc ] && {
@@ -86,7 +85,7 @@ _git_cmd_cfg=(
 	'bisect         alias  stdcmpl'
 	'blame          alias'
 	'branch         alias  stdcmpl'
-	'bundle         alias  stdcmpl'
+	'bundle                stdcmpl'
 	'cat-file       alias'
 	'checkout       alias  stdcmpl'
 	'cherry         alias  stdcmpl'
@@ -97,11 +96,13 @@ _git_cmd_cfg=(
 	'config         alias  stdcmpl'
 	'describe       alias  stdcmpl'
 	'diff           alias  stdcmpl'
+	'difftool       alias'
 	'fetch          alias  stdcmpl'
 	'format-patch   alias  stdcmpl'
 	'fsck           alias'
 	'gc             alias  stdcmpl'
 	'gui            alias'
+	'hash-object    alias'
 	'init           alias'
 	'instaweb       alias'
 	'log            alias  logcmpl'
@@ -110,7 +111,7 @@ _git_cmd_cfg=(
 	'ls-remote      alias  stdcmpl'
 	'ls-tree        alias  stdcmpl'
 	'merge          alias  stdcmpl'
-	'merge-base            stdcmpl'
+	'merge-base     alias  stdcmpl'
 	'mergetool      alias'
 	'mv             alias'
 	'name-rev              stdcmpl'
@@ -133,9 +134,9 @@ _git_cmd_cfg=(
 	'rm             alias'
 	'send-email     alias'
 	'send-pack      alias'
-	'shortlog              stdcmpl'
+	'shortlog       alias  stdcmpl'
 	'show           alias  stdcmpl'
-	'show-branch           logcmpl'
+	'show-branch    alias  logcmpl'
 	'stash          alias  stdcmpl'
 	'status         alias'
 	'stripspace     alias'
@@ -159,9 +160,24 @@ for cfg in "${_git_cmd_cfg[@]}" ; do
 	done
 done
 
+# Create aliases for everything defined in the gitconfig [alias] section.
+_git_import_aliases () {
+	eval "$(
+		git config --get-regexp 'alias\..*' |
+		sed 's/^alias\.//'                  |
+		while read key command
+		do
+			if expr -- "$command" : '!' >/dev/null
+			then echo "alias $key='git $key'"
+			else echo "gitalias $key=\"git $command\""
+			fi
+		done
+	)"
+}
+
 # PROMPT =======================================================================
 
-PS1='`_git_headname`!`_git_workdir``_git_dirty`> '
+PS1='`_git_headname`!`_git_repo_state``_git_workdir``_git_dirty``_git_dirty_stash`> '
 
 ANSI_RESET="\001$(git config --get-color "" "reset")\002"
 
@@ -172,6 +188,15 @@ _git_dirty() {
 	fi
 	local dirty_marker="`git config gitsh.dirty || echo ' *'`"
 	_git_apply_color "$dirty_marker" "color.sh.dirty" "red"
+}
+
+# detect whether any changesets are stashed
+_git_dirty_stash() {
+	if ! git rev-parse --verify refs/stash >/dev/null 2>&1; then
+		return 0
+	fi
+	local dirty_stash_marker="`git config gitsh.dirty-stash || echo ' $'`"
+	_git_apply_color "$dirty_stash_marker" "color.sh.dirty-stash" "red"
 }
 
 # detect the current branch; use 7-sha when not on branch
@@ -189,6 +214,19 @@ _git_workdir() {
 	subdir="${subdir%/}"
 	workdir="${PWD%/$subdir}"
 	_git_apply_color "${workdir/*\/}${subdir:+/$subdir}" "color.sh.workdir" "blue bold"
+}
+
+# detect if the repository is in a special state (rebase or merge)
+_git_repo_state() {
+	local git_dir="$(git rev-parse --show-cdup).git"
+	if test -d "$git_dir/rebase-merge"; then
+		local state_marker="(rebase)"
+	elif test -f "$git_dir/MERGE_HEAD"; then
+		local state_marker="(merge)"
+	else
+		return 0
+	fi
+	_git_apply_color "$state_marker" "color.sh.repo-state" "red"
 }
 
 # determine whether color should be enabled. this checks git's color.ui
@@ -218,24 +256,29 @@ _git_color() {
 # HELP ========================================================================
 
 _help_display() {
+	local name value
 	# show git's inbuilt help, after some tweaking...
-	git --help |
-		grep -v 'usage: git ' |
-		sed "s/See 'git help/See 'help/"
+	git --help | grep -v "See 'git help"
 
-	# show aliases from ~/.gitshrc
-	[ -r ~/.gitshrc ] && {
-		echo ; echo 'Aliases from ~/.gitshrc'
-		perl -ne's/(?:git)?alias +// or next; s/=/\t\t\t/; print' ~/.gitshrc
-	}
+	# show aliases defined in ~/.gitconfig
+	echo "Command aliases:"
+	git config --get-regexp 'alias\..*' |
+	sed 's/^alias\.//'                  |
+	sort                                |
+	while read name value
+	do printf "   %-10s %-65s\n" "$name" "$value"
+	done
+
+	printf "\nSee 'help COMMAND' for more information on a specific command.\n"
 }
 
 help() {
 	local _git_pager=$(git config core.pager)
-	[ $# = 1 ] &&
-		git help $1 ||
-		(_help_display | ${_git_pager:-${PAGER:-less}})
+	if [ $# = 1 ];
+	then git help $1
+	else (_help_display | ${_git_pager:-${PAGER:-less}})
+	fi
 }
 complete -o default -o nospace -F _git help
 
-# vim: tw=80
+# vim: tw=80 noexpandtab
